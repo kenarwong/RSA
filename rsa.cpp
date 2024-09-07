@@ -7,9 +7,11 @@
 #include <iostream>
 using namespace std;
 
-#pragma warning(disable: 4800)
-#include <mpirxx.h>
-#pragma warning(default: 4800)
+//#pragma warning(disable: 4800)
+//#include <mpirxx.h>
+//#pragma warning(default: 4800)
+
+#include <gmp.h>
 
 #include <sstream>
 #include <string>
@@ -89,6 +91,14 @@ bool check_rel_prime(int a, int b){
 		}
 	}
 	return rel_prime;
+}
+
+// Define the operator<< for mpz_t
+std::ostream& operator<<(std::ostream& os, const mpz_t& value) {
+    char* str = mpz_get_str(nullptr, 10, value);
+    os << str;
+    free(str);
+    return os;
 }
 
 int main (void)
@@ -323,12 +333,21 @@ int main (void)
 
 	cout << "Your encrypted message, X, is..." << endl;
 
-	vector<mpz_class> X;
+  mpz_t* X = new mpz_t[M_T.size()];
 	for(int i=0; i < M_T.size(); i++){
-		mpz_class p(P), t(M_T[i]), r(R), X_i; // Convert to multi-precision classes
-		mpz_powm(X_i.get_mpz_t(), t.get_mpz_t(), p.get_mpz_t(), r.get_mpz_t()); // X = (T^P) % R
+    mpz_t p;
+    mpz_init_set_ui(p, P);
+    mpz_t t;
+    mpz_init_set_ui(t, M_T[i]);
+    mpz_t r;
+    mpz_init_set_ui(r, R);
+    mpz_t X_i;
+    mpz_init(X_i);
+		mpz_powm(X_i, t, p, r); // X = (T^P) % R
 		cout << X_i << " ";
-		X.push_back(X_i);
+
+    mpz_init(X[i]);
+    mpz_set_ui(X[i], mpz_get_ui(X_i));
 	}
 	cout << endl;
 	cout << endl;	
@@ -340,12 +359,19 @@ int main (void)
 
 	cout << "Your decrypted message, T, is..." << endl;
 
-	vector<mpz_class> T2;
+  mpz_t* T2 = new mpz_t[M_T.size()];
 	for(int i=0; i < M_T.size(); i++){
-		mpz_class q(Q), r(R), T2_i; // Convert to multi-precision classes
-		mpz_powm(T2_i.get_mpz_t(), X[i].get_mpz_t(), q.get_mpz_t(), r.get_mpz_t()); // T = (X^Q) % R
+    mpz_t q;
+    mpz_init_set_ui(q, Q);
+    mpz_t r;
+    mpz_init_set_ui(r, R);
+    mpz_t T2_i;
+    mpz_init(T2_i);
+    mpz_powm(T2_i, X[i], q, r); // T = (X^Q) % R
 		cout << T2_i << " ";
-		T2.push_back(T2_i);
+
+    mpz_init(T2[i]);
+    mpz_set_ui(T2[i], mpz_get_ui(T2_i));
 	}
 	cout << endl;
 	cout << endl;
@@ -354,15 +380,18 @@ int main (void)
 	cout << "Let's convert this back into letters using the character mapping." << endl;
 	cout << "Your original word was... ";
 	for(int i=0; i < M_T.size(); i++){
-		unsigned int T_i = T2[i].get_ui(); // T2[i].get_ui converts mpz_class to unsigned integer
-		if (T_i > numeric_limits<unsigned int>::max()){ // Safety in case conversion from mpz_class produces a number too large
-			break;
-		}
+		unsigned int T_i = mpz_get_ui(T2[i]);
+		//if (T_i > numeric_limits<unsigned int>::max()){ // Safety in case conversion from mpz_class produces a number too large
+		//	break;
+		//}
 		vector<int>::iterator T_p = find(T.begin(),T.end(),T_i); // Find index in T
 		int index = T_p - T.begin();
 		cout << alphabet[index];
 	}
 	cout << "!" << endl;
+
+  delete [] X;
+  delete [] T2;
 	
 	return 0;
 }
